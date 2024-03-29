@@ -9,45 +9,37 @@ except ImportError:
 class RGBLed:
 	common = 'cathode'
 	colors = [0xFF0000, 0x00FF00, 0x0000FF, 0xFFFF00, 0xFF00FF, 0x00FFFF]
-	#pins = (27, 22, 23)
-	# GPIO numbers  sequential numbers are 37 15 16 and VCC-->17 3.3v
 	pins = (27, 22, 23)
-	cnvf = 100 / 255
+	freqs = (97, 101, 103)
 
 	def __init__(self):
+		if self.common=='cathode':
+			self.igpiov = GPIO.LOW
+			self.cnv = lambda v: 100*float(v&0xff)/255
+		else:
+			self.igpiov = GPIO.HIGH
+			self.cnv = lambda v: 100 - 100 * float(v&0xff)/255
 		GPIO.setmode(GPIO.BCM)
 		GPIO.setup(self.pins, GPIO.OUT)  # Set pins' mode is output
-		GPIO.output(self.pins, GPIO.HIGH)
-		#for p in self.pins:
-		#	GPIO.output(self.pins, GPIO.HIGH)
-		#	GPIO.output(p, GPIO.LOW)
-		#	print('p=%s' % p)
-		#	time.sleep(2)
-		GPIO.output(self.pins, GPIO.HIGH)
+		GPIO.output(self.pins, self.igpiov)
 
-		self.p_R = GPIO.PWM(self.pins[0], 97)  # set Frequency to 2KHz
-		self.p_G = GPIO.PWM(self.pins[1], 101)
-		self.p_B = GPIO.PWM(self.pins[2], 103)
-
-		self.p_R.start(100)   # Initial duty Cycle = 0(leds off)
-		self.p_G.start(100)
-		self.p_B.start(100)
-
-	@classmethod
-	def cnv(cls,v):
-		scaled = (v&0xff)*cls.cnvf
-		return scaled if cls.common=='cathode' else (100 - scaled)
+		pwms = [].append
+		for i, (pin, freq) in enumerate(zip(self.pins,self.freqs)):
+			pwm = GPIO.PWM(pin,freq)
+			pwm.start(0) # leds off
+			pwms(pwm)
+		self.pwms = pwms.__self__
 
 	def setColor(self,col):  # For example : col = 0x1122
-		self.p_R.ChangeDutyCycle(self.cnv(col>>16))
-		self.p_G.ChangeDutyCycle(self.cnv(col>>8))
-		self.p_B.ChangeDutyCycle(self.cnv(col))
+		self.pwms[0].ChangeDutyCycle(self.cnv(col>>16))
+		self.pwms[1].ChangeDutyCycle(self.cnv(col>>8))
+		self.pwms[2].ChangeDutyCycle(self.cnv(col))
 
 	def cleanup(self):
-		self.p_R.stop()
-		self.p_G.stop()
-		self.p_B.stop()
-		GPIO.output(self.pins, GPIO.HIGH)	# Turn off all leds
+		self.pwms[0].stop()
+		self.pwms[1].stop()
+		self.pwms[2].stop()
+		GPIO.output(self.pins, self.igpiov)	# Turn off all leds
 		GPIO.cleanup()
 
 _rgbled = RGBLed()
